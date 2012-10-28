@@ -1,0 +1,403 @@
+###############################################################################
+# 
+# Consider data on returns of two market assets and of a risk-free asset.
+# First consider a univariate dynamic capital asset pricing model (CAPM).
+# Provide estimates and forecasts by MLE and in a Bayesian approach.
+# Now study the two market assets jointly, through a bivariate extension
+# of the dynamic CAPM given by a seemingly unrelated regression
+# model.
+#
+# Authors:
+#  Luca Beldi - 1351030
+#  Paolo Leonetti - 1302108
+#
+###############################################################################
+> # We choose the biggest company (as for market capitalization) and the first in alphabetic order of the S&P500
+> ExxonPrice<-get.hist.quote("XOM",start="1990-1-1",end="2012-10-1",quote = "AdjClose")
+provo con l'URL 'http://chart.yahoo.com/table.csv?s=XOM&a=0&b=01&c=1990&d=9&e=01&f=2012&g=d&q=q&y=0&z=XOM&x=.csv'
+Content type 'text/csv' length unknown
+URL aperto
+downloaded 276 Kb
+
+time series starts 1990-01-02
+
+> ThreeMPrice<-get.hist.quote("MMM",start="1990-1-1",end="2012-10-1",quote = "AdjClose")
+provo con l'URL 'http://chart.yahoo.com/table.csv?s=MMM&a=0&b=01&c=1990&d=9&e=01&f=2012&g=d&q=q&y=0&z=MMM&x=.csv'
+Content type 'text/csv' length unknown
+URL aperto
+downloaded 278 Kb
+
+time series starts 1990-01-02
+
+> SePPrice<-get.hist.quote("^GSPC",start="1990-1-1",end="2012-10-1",quote = "AdjClose")
+provo con l'URL 'http://chart.yahoo.com/table.csv?s=^GSPC&a=0&b=01&c=1990&d=9&e=01&f=2012&g=d&q=q&y=0&z=^GSPC&x=.csv'
+Content type 'text/csv' length unknown
+URL aperto
+downloaded 332 Kb
+
+time series starts 1990-01-02
+
+> png(filename="Prices.png")
+
+> plot(ExxonPrice,ylab="Price",xlab="Time",main="Prices of Exxon Mobil and 3M in time")
+
+> lines(ThreeMPrice,col="gray",lty=2)
+
+> legend(7190,max(max(ExxonPrice),max(ThreeMPrice))-2,legend=c("Exxon Mobil","3M"),col=c("black","gray"),lty=c(1,2),cex=0.8)
+
+> # We use the 3 month TBILL as risk free rete. Data is from the Federal Reserve. Yields are in continuous Compunding
+> RiskFreeRate<-read.csv("TBILL.csv")
+
+> RiskFreeRate<-as.vector(RiskFreeRate$DailyYield)
+
+> RiskFreeRate<-RiskFreeRate[length(RiskFreeRate):2]
+
+> # We Build Daily returns
+> Exxon<-expm1(diff(log(ExxonPrice)))
+
+> ThreeM<-expm1(diff(log(ThreeMPrice)))
+
+> SeP<-expm1(diff(log(SePPrice)))
+
+> # Standard CAPM
+> x<-SeP-RiskFreeRate
+
+> Exxon<-Exxon-RiskFreeRate
+
+> ThreeM<-ThreeM-RiskFreeRate
+
+> ExxonCAPM<-lm(Exxon~x)
+
+> summary(ExxonCAPM)
+
+Call:
+lm(formula = Exxon ~ x)
+
+Residuals:
+      Min        1Q    Median        3Q       Max 
+-0.083568 -0.006540 -0.000133  0.006507  0.116501 
+
+Coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 0.0003083  0.0001604   1.922   0.0546 .  
+x           0.7908329  0.0136538  57.920   <2e-16 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 
+
+Residual standard error: 0.01214 on 5733 degrees of freedom
+Multiple R-squared: 0.3692,	Adjusted R-squared: 0.369 
+F-statistic:  3355 on 1 and 5733 DF,  p-value: < 2.2e-16 
+
+
+> ThreeMCAPM<-lm(ThreeM~x)
+
+> summary(ThreeMCAPM)
+
+Call:
+lm(formula = ThreeM ~ x)
+
+Residuals:
+      Min        1Q    Median        3Q       Max 
+-0.093994 -0.005854 -0.000060  0.005721  0.079859 
+
+Coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 0.0002214  0.0001584   1.398    0.162    
+x           0.7808162  0.0134833  57.910   <2e-16 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 
+
+Residual standard error: 0.01199 on 5733 degrees of freedom
+Multiple R-squared: 0.3691,	Adjusted R-squared: 0.369 
+F-statistic:  3354 on 1 and 5733 DF,  p-value: < 2.2e-16 
+
+
+> # CAPM as a dlm
+> # MLE
+> buildCAPM<-function(u){
++ 	dlmModReg(x,dV=exp(u[1]),dW=exp(u[2:3]))
++ }
+
+> ExxonDlmCAPMp <- dlmMLE(Exxon, parm=rep(0,3),buildCAPM)
+
+> ExxonDlmCAPMp$convergence #The optimization converges
+[1] 0
+
+> ExxonDlmCAPM<- buildCAPM(ExxonDlmCAPMp$par)
+
+> ExxonDlmCAPM["V"]
+$V
+             [,1]
+[1,] 0.0001303209
+
+
+> ExxonDlmCAPM["W"]
+$W
+            [,1]        [,2]
+[1,] 2.50415e-13 0.000000000
+[2,] 0.00000e+00 0.001676069
+
+
+> ThreeMDlmCAPMp <- dlmMLE(ThreeM, parm=rep(0,3),buildCAPM)
+
+> ThreeMDlmCAPMp$convergence #The optimization converges
+[1] 0
+
+> ThreeMDlmCAPM<- buildCAPM(ThreeMDlmCAPMp$par)
+
+> ThreeMDlmCAPM["V"]
+$V
+             [,1]
+[1,] 0.0001369959
+
+
+> ThreeMDlmCAPM["W"]
+$W
+             [,1]         [,2]
+[1,] 7.237677e-14 0.0000000000
+[2,] 0.000000e+00 0.0008727416
+
+
+> ExxonSmooth <- dlmSmooth(Exxon,ExxonDlmCAPM)
+
+> ThreeMSmooth <- dlmSmooth(ThreeM,ThreeMDlmCAPM)
+
+> #Plot them
+> png(filename="Exxon CAPM Coefficients.png")
+
+> split.screen(c(2,1))
+[1] 1 2
+
+> screen(1)
+
+> plot(as.Date(7305:(7304+length(dropFirst(ExxonSmooth$s)[,1]))),dropFirst(ExxonSmooth$s)[,1],type='l',ylab="Alpha",xlab="",main="Components of the CAPM for Exxon")
+
+> screen(2)
+
+> plot(as.Date(7305:(7304+length(dropFirst(ExxonSmooth$s)[,1]))),dropFirst(ExxonSmooth$s)[,2],type='l',ylab="Beta",xlab="Time")
+
+> png(filename="3M CAPM Coefficients.png")
+
+> split.screen(c(2,1))
+[1] 1 2
+
+> screen(1)
+
+> plot(as.Date(7305:(7304+length(dropFirst(ThreeMSmooth$s)[,1]))),dropFirst(ThreeMSmooth$s)[,1],type='l',ylab="Alpha",xlab="",main="Components of the CAPM for 3M")
+
+> screen(2)
+
+> plot(as.Date(7305:(7304+length(dropFirst(ThreeMSmooth$s)[,1]))),dropFirst(ThreeMSmooth$s)[,2],type='l',ylab="Beta",xlab="Time")
+
+> #Bayesian Inference
+> 
+> Simulations<-25000
+
+> Burn<-5000
+
+> # Gibbs sampling takes several hours
+> ################################################################
+> # Exxon.MC <- dlmGibbsDIG(Exxon,
+> #		dlmModReg(x, m0 = c(0, 1),C0 = diag(c(1000, 1000))),
+> #		a.y=1, b.y=1000, a.theta=10, b.theta = 1000,
+> #		thin=1, n.sample=Simulations, save.states=FALSE)
+> # save(Exxon.MC, file="Exxon.MC")
+> # ThreeM.MC <- dlmGibbsDIG(ThreeM,
+> #		dlmModReg(x, m0 = c(0, 1),C0 = diag(c(1000, 1000))),
+> #		a.y=1, b.y=1000, a.theta=10, b.theta = 1000,
+> #		thin=1, n.sample=Simulations, save.states=FALSE)
+> # save(ThreeM.MC, file="ThreeM.MC")
+> ################################################################
+> #Load Pre Calculated Data
+> load("Exxon.MC")
+
+> load("ThreeM.MC")
+
+> ################################################################
+> 
+> #Plot Simulations Diagnosis
+> png(filename="Exxon Simulation Diagnosis.png")
+
+> par(mfrow=c(4,3),mar=c(0,5,5,0), oma=c(3,3,0,3))
+
+> plot(1:(Simulations-Burn),Exxon.MC$dV[-(1:Burn)],type="p",main="V",xlab="", ylab="")
+
+> plot(1:(Simulations-Burn),(Exxon.MC$dW[,1])[-(1:Burn)],type="p",xlab="", ylab="",main=expression("W"[1]))
+
+> plot(1:(Simulations-Burn),(Exxon.MC$dW[,2])[-(1:Burn)],type="p",main=expression("W"[2]),xlab="", ylab="")
+
+> plot(ergMean(Exxon.MC$dV[-(1:Burn)],0.05*(Simulations-Burn)),type="l", xlab="", ylab="")
+
+> plot(ergMean((Exxon.MC$dW[,1])[-(1:Burn)],0.05*(Simulations-Burn)),type="l", xlab="", ylab="")
+
+> plot(ergMean((Exxon.MC$dW[,2])[-(1:Burn)],0.05*(Simulations-Burn)),type="l", xlab="", ylab="")
+
+> acf(Exxon.MC$dV[-(1:Burn)],ylab="",main="")
+
+> acf((Exxon.MC$dW[,1])[-(1:Burn)],ylab="",main="")
+
+> acf((Exxon.MC$dW[,2])[-(1:Burn)],ylab="",main="")
+
+> par(mar=c(5,5,3,0))
+
+> plot(Exxon.MC$dV[-(1:Burn)],(Exxon.MC$dW[,1])[-(1:Burn)],pch=19,cex=.5,xlab="V",ylab=expression("W"[1]))
+
+> plot(Exxon.MC$dV[-(1:Burn)],(Exxon.MC$dW[,2])[-(1:Burn)],pch=19,cex=.5,xlab="V",ylab=expression("W"[2]))
+
+> plot((Exxon.MC$dW[,1])[-(1:Burn)],(Exxon.MC$dW[,2])[-(1:Burn)],pch=19,cex=.5,ylab=expression("W"[2]),xlab=expression("W"[1]))
+
+> png(filename="3M Simulation Diagnosis.png")
+
+> par(mfrow=c(4,3),mar=c(0,5,5,0), oma=c(3,3,0,3))
+
+> plot(1:(Simulations-Burn),ThreeM.MC$dV[-(1:Burn)],type="p",main="V",xlab="", ylab="")
+
+> plot(1:(Simulations-Burn),(ThreeM.MC$dW[,1])[-(1:Burn)],type="p",xlab="", ylab="",main=expression("W"[1]))
+
+> plot(1:(Simulations-Burn),(ThreeM.MC$dW[,2])[-(1:Burn)],type="p",main=expression("W"[2]),xlab="", ylab="")
+
+> plot(ergMean(ThreeM.MC$dV[-(1:Burn)],0.05*(Simulations-Burn)),type="l", xlab="", ylab="")
+
+> plot(ergMean((ThreeM.MC$dW[,1])[-(1:Burn)],0.05*(Simulations-Burn)),type="l", xlab="", ylab="")
+
+> plot(ergMean((ThreeM.MC$dW[,2])[-(1:Burn)],0.05*(Simulations-Burn)),type="l", xlab="", ylab="")
+
+> acf(ThreeM.MC$dV[-(1:Burn)],ylab="",main="")
+
+> acf((ThreeM.MC$dW[,1])[-(1:Burn)],ylab="",main="")
+
+> acf((ThreeM.MC$dW[,2])[-(1:Burn)],ylab="",main="")
+
+> par(mar=c(5,5,3,0))
+
+> plot(ThreeM.MC$dV[-(1:Burn)],(ThreeM.MC$dW[,1])[-(1:Burn)],pch=19,cex=.5,xlab="V",ylab=expression("W"[1]))
+
+> plot(ThreeM.MC$dV[-(1:Burn)],(ThreeM.MC$dW[,2])[-(1:Burn)],pch=19,cex=.5,xlab="V",ylab=expression("W"[2]))
+
+> plot((ThreeM.MC$dW[,1])[-(1:Burn)],(ThreeM.MC$dW[,2])[-(1:Burn)],pch=19,cex=.5,ylab=expression("W"[2]),xlab=expression("W"[1]))
+
+> Exxon.Bay.DLM<- dlmModReg(x, m0 = c(0, 1), C0 = diag(c(1000, 1000)),
++ 		dV=mean(Exxon.MC$dV[-(1:Burn)]), dW=c(mean((Exxon.MC$dW[,1])[-(1:Burn)]),mean((Exxon.MC$dW[,2])[-(1:Burn)])))
+
+> Exxon.Bay.CAPM<- dlmSmooth(Exxon,Exxon.Bay.DLM)
+
+> ThreeM.Bay.DLM<- dlmModReg(x, m0 = c(0, 1), C0 = diag(c(1000, 1000)),
++ 		dV=mean(ThreeM.MC$dV[-(1:Burn)]), dW=c(mean((ThreeM.MC$dW[,1])[-(1:Burn)]),mean((ThreeM.MC$dW[,2])[-(1:Burn)])))
+
+> ThreeM.Bay.CAPM<- dlmSmooth(ThreeM,ThreeM.Bay.DLM)
+
+> png(filename="Exxon Bayesian CAPM Coefficients.png")
+
+> split.screen(c(2,1))
+[1] 1 2
+
+> screen(1)
+
+> plot(as.Date(7305:(7304+length(dropFirst(Exxon.Bay.CAPM$s)[,1]))),dropFirst(Exxon.Bay.CAPM$s)[,1],type='l',ylab="Alpha",xlab="",main="Components of the CAPM for Exxon")
+
+> screen(2)
+
+> plot(as.Date(7305:(7304+length(dropFirst(Exxon.Bay.CAPM$s)[,1]))),dropFirst(Exxon.Bay.CAPM$s)[,2],type='l',ylab="Beta",xlab="Time")
+
+> png(filename="3M Bayesian CAPM Coefficients.png")
+
+> split.screen(c(2,1))
+[1] 1 2
+
+> screen(1)
+
+> plot(as.Date(7305:(7304+length(dropFirst(ThreeM.Bay.CAPM$s)[,1]))),dropFirst(ThreeM.Bay.CAPM$s)[,1],type='l',ylab="Alpha",xlab="",main="Components of the CAPM for 3M")
+
+> screen(2)
+
+> plot(as.Date(7305:(7304+length(dropFirst(ThreeM.Bay.CAPM$s)[,1]))),dropFirst(ThreeM.Bay.CAPM$s)[,2],type='l',ylab="Beta",xlab="Time")
+
+> #Multivariate Extension
+> BuildSUR <- function(u){
++ 	# u is a vector contaning, in order:
++ 	#	Variance of the observation for Exxon
++ 	#	Variance of the observation for 3M
++ 	#	Variance of the state proces for the Exxon alpha
++ 	#	Variance of the state proces for the 3M alpha
++ 	#	Covariance between the alpha states
++ 	#	Variance of the state proces for the Exxon beta
++ 	#	Variance of the state proces for the 3M beta
++ 	#	Covariance between the beta states
++ 	SateV1 <- matrix(c(exp(u[3]),u[5],u[5],exp(u[4])),nrow=2)
++ 	SateV2 <- matrix(c(exp(u[6]),u[8],u[8],exp(u[7])),nrow=2)
++ 	Result <- dlmModReg(x)
++ 	Result$FF <- Result$FF %x% diag(2)
++ 	Result$GG <- Result$GG %x% diag(2)
++ 	Result$JFF <- Result$JFF %x% diag(2)
++ 	Result$V <- diag(c(exp(u[1]),exp(u[2])))
++ 	Result$W <- bdiag(SateV1,SateV2)
++ 	Result$m0 <- c(rep(0,2),rep(1,2))
++ 	Result$C0 <- diag(1000,nr=4)
++ 	dlm(Result)
++ }
+
+> Stocks<-matrix(c(as.vector(Exxon),as.vector(ThreeM)),ncol=2)
+
+> colnames(Stocks)<-c("Exxon","3M")
+
+> # MLE estimation may require about half an hour of computation
+> ################################################################
+> # StocksCAPMp <- dlmMLE(Stocks,rep(1e-7,8),BuildSUR,
+> #	method="SANN",control=list(trace=6, maxit=10000))
+> # save(StocksCAPMp,file="StocksCAPMp")
+> ################################################################
+> #Load Pre Calculated Data
+> load("StocksCAPMp")
+
+> ################################################################
+> StocksCAPMp$convergence #The optimization converges
+[1] 0
+
+> StocksCAPM<-BuildSUR(StocksCAPMp$par)
+
+> StocksCAPM["V"]
+$V
+            [,1]        [,2]
+[1,] 0.009133091 0.000000000
+[2,] 0.000000000 0.005758099
+
+
+> StocksCAPM["W"]
+$W
+            [,1]        [,2]      [,3]     [,4]
+[1,]  0.08070253 -0.05277663 0.0000000 0.000000
+[2,] -0.05277663  0.03460445 0.0000000 0.000000
+[3,]  0.00000000  0.00000000 0.4361757 3.737461
+[4,]  0.00000000  0.00000000 3.7374612 2.369023
+
+
+> SmoothedSUR<-dlmSmooth(Stocks,StocksCAPM)
+
+> png(filename="SUR CAPM Coefficients.png")
+
+> split.screen(c(2,2))
+[1] 1 2 3 4
+
+> screen(1)
+
+> plot(as.Date(7305:(7304+length(dropFirst(SmoothedSUR$s)[,1]))),dropFirst(SmoothedSUR$s)[,1],type='l',ylab="Alpha",xlab="",main="Components for Exxon")
+
+> screen(3)
+
+> plot(as.Date(7305:(7304+length(dropFirst(SmoothedSUR$s)[,1]))),dropFirst(SmoothedSUR$s)[,3],type='l',ylab="Beta",xlab="Time")
+
+> screen(2)
+
+> plot(as.Date(7305:(7304+length(dropFirst(SmoothedSUR$s)[,1]))),dropFirst(SmoothedSUR$s)[,2],type='l',ylab="Alpha",xlab="",main="Components for 3M")
+
+> screen(4)
+
+> plot(as.Date(7305:(7304+length(dropFirst(SmoothedSUR$s)[,1]))),dropFirst(SmoothedSUR$s)[,4],type='l',ylab="Beta",xlab="Time")
+
+> #Close all Painting Devices
+> while (dev.off()>1){}
+Warning messages:
+1: package 'tseries' was built under R version 2.14.2 
+2: package 'quadprog' was built under R version 2.14.2 
+3: package 'zoo' was built under R version 2.14.2 
+4: package 'dlm' was built under R version 2.14.2 
